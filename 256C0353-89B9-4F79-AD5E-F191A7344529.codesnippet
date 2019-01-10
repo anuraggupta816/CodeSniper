@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDECodeSnippetCompletionPrefix</key>
+	<string>collectionView</string>
+	<key>IDECodeSnippetCompletionScopes</key>
+	<array>
+		<string>All</string>
+	</array>
+	<key>IDECodeSnippetContents</key>
+	<string>struct ViewerDetail {
+    var id:String?
+    var name:String?
+    var url:String?
+}
+class ViewerCollectionViewCell:UICollectionViewCell{
+    var details:ViewerDetail?{
+        didSet{
+            
+        }
+    }
+    
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        self.setUpViews()
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    
+    func setUpViews(){
+        
+    }
+    
+}
+class CustomCollectionViewFlow:UICollectionViewFlowLayout{
+    private var firstSetupDone = false
+    override func prepare() {
+        super.prepare()
+        if !firstSetupDone {
+            setup()
+            firstSetupDone = true
+        }
+    }
+    
+    private func setup() {
+        scrollDirection = .horizontal
+        minimumLineSpacing = 10
+        itemSize = CGSize(width: collectionView!.frame.width, height: collectionView!.frame.height)
+    }
+}
+
+extension BaseTableViewCell:UICollectionViewDataSource,UICollectionViewDelegate{
+    
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -&gt; Int {
+        if let count = self.viewerDetails?.count{
+            return count
+        }
+        return 0
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -&gt; UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ViewerCollectionViewCell", for: indexPath) as! ViewerCollectionViewCell
+        return cell
+    }
+}
+lazy var collectionView:UICollectionView={
+    let flow = CustomCollectionViewFlow()
+    let cv = UICollectionView(frame: .zero, collectionViewLayout: flow)
+    cv.delegate = self
+    cv.dataSource = self
+    cv.register(ViewerCollectionViewCell.self, forCellWithReuseIdentifier: "ViewerCollectionViewCell")
+    cv.backgroundColor = .clear
+    cv.showsVerticalScrollIndicator = false
+    cv.showsHorizontalScrollIndicator = false
+    cv.translatesAutoresizingMaskIntoConstraints = false
+    return cv
+    }()</string>
+	<key>IDECodeSnippetIdentifier</key>
+	<string>256C0353-89B9-4F79-AD5E-F191A7344529</string>
+	<key>IDECodeSnippetLanguage</key>
+	<string>Xcode.SourceCodeLanguage.Generic</string>
+	<key>IDECodeSnippetSummary</key>
+	<string>collectionView</string>
+	<key>IDECodeSnippetTitle</key>
+	<string>collectionView</string>
+	<key>IDECodeSnippetUserSnippet</key>
+	<true/>
+	<key>IDECodeSnippetVersion</key>
+	<integer>2</integer>
+</dict>
+</plist>
