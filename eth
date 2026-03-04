@@ -1,0 +1,252 @@
+import axios from "axios";
+import { ethers } from "ethers";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+export class EthHelper {
+
+  private rpcUrl: string;
+  private rpcId: number = 1;
+  private provider: ethers.JsonRpcProvider;
+  private wallet?: ethers.Wallet;
+
+  constructor() {
+    this.rpcUrl = process.env.ETH_NODE_HTTP as string;
+
+    this.provider = new ethers.JsonRpcProvider(this.rpcUrl);
+
+    if (process.env.ADMIN_ETH_SECRET) {
+      this.wallet = new ethers.Wallet(
+        process.env.ADMIN_ETH_SECRET,
+        this.provider
+      );
+    }
+  }
+
+  // ======================================================
+  // JSON RPC 2.0 (LOW LEVEL)
+  // ======================================================
+
+  private async rpcCall(method: string, params: any[] = []) {
+    const response = await axios.post(this.rpcUrl, {
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: this.rpcId++
+    });
+
+    if (response.data.error) {
+      throw new Error(response.data.error.message);
+    }
+
+    return response.data.result;
+  }
+
+  // ======================================================
+  // BLOCK SCANNER (Single Hit)
+  // ======================================================
+
+  async getCurrentBlockNumber(): Promise<number> {
+    const hex = await this.rpcCall("eth_blockNumber");
+    return parseInt(hex, 16);
+  }
+
+  async getBlockWithTransactions(blockNumber: number) {
+    const hexBlock = "0x" + blockNumber.toString(16);
+
+    return await this.rpcCall("eth_getBlockByNumber", [
+      hexBlock,
+      true
+    ]);
+  }
+
+  async getTransactionReceipt(txHash: string) {
+    return await this.rpcCall("eth_getTransactionReceipt", [txHash]);
+  }
+
+  // ======================================================
+  // SCAN BLOCK FOR OUR ADDRESSES
+  // ======================================================
+
+  async scanBlockForDeposits(
+    blockNumber: number,
+    ourAddresses: string[]
+  ) {
+    const block = await this.getBlockWithTransactions(blockNumber);
+
+    const deposits: any[] = [];
+
+    for (const tx of block.transactions) {
+
+      if (
+        tx.to &&
+        ourAddresses.includes(tx.to.toLowerCase())
+      ) {
+        deposits.push({
+          hash: tx.hash,
+          from: tx.from,
+          to: tx.to,
+          valueWei: tx.value,
+          valueEth: ethers.formatEther(tx.value),
+          blockNumber: parseInt(tx.blockNumber, 16)
+        });
+      }
+    }
+
+    return deposits;
+  }
+
+  // ======================================================
+  // ETH BALANCE
+  // ======================================================
+
+  async getEthBalance(address: string) {
+    const balance = await this.provider.getBalance(address);
+    return {
+      wei: balance.toString(),
+      eth: ethers.formatEther(balance)
+    };
+  }
+
+  // ======================================================
+  // ERC20 BALANCE
+  // ======================================================
+
+  async getTokenBalance(
+    tokenAddress: string,
+    userAddress: string
+  ) {
+    const ABI = [
+      "function balanceOf(address) view returns (uint256)",
+      "function decimals() view returns (uint8)"
+    ];
+
+    const contract = new ethers.Contract(
+      tokenAddress,
+      ABI,
+      this.provider
+    );
+
+    const decimals = await contract.decimals();
+    const balance = await contract.balanceOf(userAddress);
+
+    return ethers.formatUnits(balance, decimals);
+  }
+
+  // ======================================================
+  // SEND ETH (EIP-1559)
+  // ======================================================
+
+  async sendEth(to: string, amount: string) {
+    if (!this.wallet) throw new Error("Wallet not initialized");
+
+    const tx = await this.wallet.sendTransaction({
+      to,
+      value: ethers.parseEther(amount)
+    });
+
+    const receipt = await tx.wait();
+
+    if (receipt?.status !== 1) {
+      throw new Error("Transaction failed");
+    }
+
+    return tx.hash;
+  }
+
+  // ======================================================
+  // SEND ERC20 TOKEN
+  // ======================================================
+
+  async sendToken(
+    tokenAddress: string,
+    to: string,
+    amount: string
+  ) {
+    if (!this.wallet) throw new Error("Wallet not initialized");
+
+    const ABI = [
+      "function transfer(address,uint256) returns (bool)",
+      "function decimals() view returns (uint8)"
+    ];
+
+    const contract = new ethers.Contract(
+      tokenAddress,
+      ABI,
+      this.wallet
+    );
+
+    const decimals = await contract.decimals();
+
+    const tx = await contract.transfer(
+      to,
+      ethers.parseUnits(amount, decimals)
+    );
+
+    const receipt = await tx.wait();
+
+    if (receipt?.status !== 1) {
+      throw new Error("Token transfer failed");
+    }
+
+    return tx.hash;
+  }
+
+  // ======================================================
+  // GAS ESTIMATION (EIP-1559)
+  // ======================================================
+
+  async estimateEthGas(to: string, amount: string) {
+
+    const tx = {
+      to,
+      value: ethers.parseEther(amount)
+    };
+
+    const gasLimit = await this.provider.estimateGas(tx);
+    const feeData = await this.provider.getFeeData();
+
+    const totalFee =
+      gasLimit * (feeData.maxFeePerGas as bigint);
+
+    return {
+      gasLimit: gasLimit.toString(),
+      maxFeePerGas: feeData.maxFeePerGas?.toString(),
+      estimatedFeeEth: ethers.formatEther(totalFee)
+    };
+  }
+
+  async getPastEventsUsingInstance(
+  tokenAddress: string,
+  fromBlock: number,
+  toBlock: number
+) {
+  const ABI = [
+    "event Transfer(address indexed from, address indexed to, uint256 value)"
+  ];
+
+  const contract = new ethers.Contract(
+    tokenAddress,
+    ABI,
+    this.provider
+  );
+
+  const filter = contract.filters.Transfer();
+
+  const events = await contract.queryFilter(
+    filter,
+    fromBlock,
+    toBlock
+  );
+
+  return events.map(e => ({
+    from: e.args?.from,
+    to: e.args?.to,
+    valueWei: e.args?.value.toString(),
+    txHash: e.transactionHash,
+    blockNumber: e.blockNumber
+  }));
+}
+
+}
