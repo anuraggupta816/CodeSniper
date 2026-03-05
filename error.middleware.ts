@@ -105,3 +105,69 @@ export const notFoundHandler = (_req: Request, res: Response): Response => {
 //     allowedHeaders: ["Content-Type", "Authorization"],
 //   })
 // );
+
+
+/**
+ * ===============================
+ * Security: Helmet
+ * ===============================
+ */
+// app.use(
+//   helmet({
+//     contentSecurityPolicy: {
+//       directives: {
+//         defaultSrc: ["'self'"],
+//         styleSrc: ["'self'", "'unsafe-inline'"],
+//         scriptSrc: ["'self'"],
+//         imgSrc: ["'self'", "data:", "https:"],
+//       },
+//     },
+//     hsts: {
+//       maxAge: 31536000,
+//       includeSubDomains: true,
+//       preload: true,
+//     },
+//   })
+// );
+
+// /**
+//  * ===============================
+//  * CORS
+//  * ===============================
+//  */
+// const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
+
+// app.use(
+//   cors({
+//     origin: allowedOrigins,
+//     credentials: true,
+//     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+//     allowedHeaders: ["Content-Type", "Authorization"],
+//   })
+// );
+
+// /**
+//  * ===============================
+//  * Rate Limiting
+//  * ===============================
+//  */
+// app.use(
+//   rateLimit({
+//     windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 900000),
+//     max: Number(process.env.RATE_LIMIT_MAX_REQUESTS || 100),
+//     standardHeaders: true,
+//     legacyHeaders: false,
+//     message: {
+//       success: false,
+//       message: "Too many requests from this IP, please try again later.",
+//     },
+//   })
+// );
+
+// /**
+//  * ===============================
+//  * Body Parsing
+//  * ===============================
+//  */
+// app.use(express.json({ limit: "10mb" }));
+// app.use(express.urlencoded({ extended: true, limit: "10mb" }));
